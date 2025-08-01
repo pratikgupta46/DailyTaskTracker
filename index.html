@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Daily Priority Tracker</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#4a90e2">
+    <link rel="icon" type="image/png" sizes="192x192" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎯</text></svg>">
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <div class="header-top">
+                <h1 class="app-title">Daily Priority Tracker</h1>
+                <div class="header-actions">
+                    <button id="theme-toggle" class="icon-btn" title="Toggle Theme">
+                        <span class="theme-icon">🌙</span>
+                    </button>
+                    <button id="settings-btn" class="icon-btn" title="Settings">⚙️</button>
+                </div>
+            </div>
+            <div id="current-date" class="current-date"></div>
+        </header>
+
+        <main>
+            <div class="stats-bar">
+                <div class="stat">
+                    <span id="total-tasks" class="stat-value">0</span>
+                    <span class="stat-label">Total</span>
+                </div>
+                <div class="stat">
+                    <span id="completed-tasks" class="stat-value">0</span>
+                    <span class="stat-label">Completed</span>
+                </div>
+                <div class="stat">
+                    <span id="pending-tasks" class="stat-value">0</span>
+                    <span class="stat-label">Pending</span>
+                </div>
+            </div>
+
+            <div class="view-selector">
+                <button class="view-btn active" data-view="all">All Tasks</button>
+                <button class="view-btn" data-view="pending">Pending</button>
+                <button class="view-btn" data-view="completed">Completed</button>
+            </div>
+
+            <div id="tasks-list" class="tasks-list">
+                <!-- Tasks will be rendered here -->
+            </div>
+
+            <div id="empty-state" class="empty-state hidden">
+                <p>No tasks to show. Add one to get started!</p>
+            </div>
+
+            <button id="add-task-btn" class="add-task-btn" title="Add New Task">+</button>
+        </main>
+    </div>
+
+    <!-- Task Modal -->
+    <div id="modal-overlay" class="modal-overlay"></div>
+    <div id="task-modal" class="modal">
+        <div class="modal-header">
+            <h2 id="modal-title">Add New Task</h2>
+            <button id="close-modal" class="close-btn">&times;</button>
+        </div>
+        <div class="modal-content">
+            <form id="task-form">
+                <div class="form-group">
+                    <label for="task-name">Task Name</label>
+                    <input type="text" id="task-name" name="taskName" required>
+                </div>
+                <div class="form-group">
+                    <label for="task-why">Why is this important?</label>
+                    <textarea id="task-why" name="taskWhy" required></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="task-eta">Target Completion</label>
+                    <input type="datetime-local" id="task-eta" name="taskEta">
+                </div>
+                <div class="form-group">
+                    <label for="task-time-required">Time Required (minutes)</label>
+                    <input type="number" id="task-time-required" name="taskTimeRequired" min="5">
+                </div>
+                <div class="form-group">
+                    <label for="task-priority">Priority (1-100)</label>
+                    <input type="number" id="task-priority" name="taskPriority" min="1" max="100" value="50">
+                </div>
+                <div class="form-group">
+                    <label for="eisenhower-matrix">Eisenhower Matrix</label>
+                    <select id="eisenhower-matrix" name="eisenhowerMatrix">
+                        <option value="Q1">Q1 - Urgent & Important</option>
+                        <option value="Q2" selected>Q2 - Important & Not Urgent</option>
+                        <option value="Q3">Q3 - Urgent & Not Important</option>
+                        <option value="Q4">Q4 - Not Urgent & Not Important</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="task-comments">Comments</label>
+                    <textarea id="task-comments" name="taskComments"></textarea>
+                </div>
+                <div class="form-actions">
+                    <button type="button" id="cancel-btn" class="btn btn-secondary">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Task</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div id="settings-modal" class="modal">
+        <div class="modal-header">
+            <h2>Settings</h2>
+            <button id="close-settings" class="close-btn">&times;</button>
+        </div>
+        <div class="modal-content">
+            <div class="setting-item">
+                <label for="auto-theme">Automatic Theme</label>
+                <input type="checkbox" id="auto-theme">
+            </div>
+            <div class="setting-item">
+                <button id="export-data" class="btn">Export Data</button>
+            </div>
+            <div class="setting-item">
+                <button id="import-data" class="btn">Import Data</button>
+                <input type="file" id="import-file" accept=".json" style="display:none;">
+            </div>
+        </div>
+    </div>
+
+    <script src="storage.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>

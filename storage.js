@@ -76,7 +76,6 @@ class StorageManager {
                 why: String(task.why || '').trim(),
                 eta: task.eta || null, // ISO datetime string
                 timeRequired: Math.max(5, parseInt(task.timeRequired) || 60), // minutes
-                priority: Math.min(100, Math.max(1, parseInt(task.priority) || 50)),
                 eisenhowerMatrix: task.eisenhowerMatrix || 'Q2',
                 completed: Boolean(task.completed),
                 createdAt: task.createdAt || new Date().toISOString(),
@@ -127,12 +126,17 @@ class StorageManager {
     calculateSmartScore(task) {
         let score = 0;
 
-        // 1. Priority Score (40% weight)
-        const priorityScore = (task.priority / 100) * 40;
-        score += priorityScore;
+        // 1. Eisenhower Matrix Score (40% weight)
+        const eisenhowerScores = {
+            'Q1': 40, // Urgent + Important
+            'Q2': 30, // Important, Not Urgent
+            'Q3': 20, // Urgent, Not Important
+            'Q4': 10  // Neither
+        };
+        score += eisenhowerScores[task.eisenhowerMatrix] || 30;
 
         // 2. Urgency Score based on ETA (30% weight)
-        let urgencyScore = 5; // Default for far future tasks
+        let urgencyScore = 5; // Default for tasks without ETA
         if (task.eta) {
             const now = new Date();
             const etaDate = new Date(task.eta);
@@ -141,34 +145,64 @@ class StorageManager {
             if (daysUntilETA < 0) {
                 urgencyScore = 30; // Overdue - maximum urgency
             } else if (daysUntilETA <= 1) {
-                urgencyScore = 25; // Due today/tomorrow
+                urgencyScore = 25; // Today
+            } else if (daysUntilETA <= 2) {
+                urgencyScore = 20; // In 1 day
+            } else if (daysUntilETA <= 3) {
+                urgencyScore = 18; // In 2 days
+            } else if (daysUntilETA <= 4) {
+                urgencyScore = 15; // In 3 days
+            } else if (daysUntilETA <= 5) {
+                urgencyScore = 12; // In 4 days
             } else if (daysUntilETA <= 7) {
-                urgencyScore = 20; // Due this week
+                urgencyScore = 10; // Within 1 week
+            } else if (daysUntilETA <= 14) {
+                urgencyScore = 8;  // Within 2 weeks
             } else if (daysUntilETA <= 30) {
-                urgencyScore = 10; // Due this month
+                urgencyScore = 6;  // Month
+            } else {
+                urgencyScore = 5; // Later
             }
         }
-        score += urgencyScore;
+        score += urgencyScore * 0.3;
 
-        // 3. Eisenhower Matrix Score (20% weight)
-        const eisenhowerScores = {
-            'Q1': 20, // Urgent + Important
-            'Q2': 15, // Important, Not Urgent
-            'Q3': 10, // Urgent, Not Important
-            'Q4': 5   // Neither
-        };
-        score += eisenhowerScores[task.eisenhowerMatrix] || 15;
-
-        // 4. Effort Score - Quick wins get slight boost (10% weight)
-        let effortScore = 2; // Default for long tasks
-        if (task.timeRequired <= 30) {
-            effortScore = 10; // Quick win bonus
-        } else if (task.timeRequired <= 120) {
-            effortScore = 8; // Moderate effort
-        } else if (task.timeRequired <= 480) {
-            effortScore = 5; // Long task
+        // 3. Effort Score - lower time required = higher score (20% weight)
+        let effortScore = 2; // Default for very long tasks
+        if (task.timeRequired > 0) {
+            if (task.timeRequired <= 30) {
+                effortScore = 20; // Quick tasks (≤30min)
+            } else if (task.timeRequired <= 60) {
+                effortScore = 15; // 1 hour tasks
+            } else if (task.timeRequired <= 120) {
+                effortScore = 10; // 2 hour tasks
+            } else if (task.timeRequired <= 240) {
+                effortScore = 5;  // 4 hour tasks
+            } else {
+                effortScore = 2;  // Long tasks
+            }
         }
-        score += effortScore;
+        score += effortScore * 0.2;
+
+        // 4. Age Score - how long since creation (10% weight)
+        let ageScore = 1; // Default for new tasks
+        if (task.createdAt) {
+            const now = new Date();
+            const createdDate = new Date(task.createdAt);
+            const daysOld = (now - createdDate) / (24 * 60 * 60 * 1000);
+            
+            if (daysOld > 30) {
+                ageScore = 10; // Very old tasks
+            } else if (daysOld > 14) {
+                ageScore = 7;  // Old tasks (2+ weeks)
+            } else if (daysOld > 7) {
+                ageScore = 5;  // Week-old tasks
+            } else if (daysOld > 3) {
+                ageScore = 3;  // Few days old
+            } else {
+                ageScore = 1;  // New tasks
+            }
+        }
+        score += ageScore * 0.1;
 
         return Math.round(score * 10) / 10; // Round to 1 decimal place
     }
@@ -369,7 +403,7 @@ class StorageManager {
     }
 
     /**
-     * Reorder tasks by priority
+     * Reorder tasks by smart score
      */
     reorderTasks(taskIds) {
         try {
@@ -387,13 +421,12 @@ class StorageManager {
                 }
             });
 
-            // Add tasks in new order with updated priority
-            taskIds.forEach((taskId, index) => {
+            // Add tasks in new order with updated timestamp
+            taskIds.forEach((taskId) => {
                 const task = taskMap.get(taskId);
                 if (task) {
                     reorderedTasks.push({
                         ...task,
-                        priority: index + 1,
                         updatedAt: new Date().toISOString()
                     });
                 }

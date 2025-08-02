@@ -10,6 +10,9 @@ class DailyPriorityApp {
         this.draggedTask = null;
         this.touchStartY = 0;
         this.touchStartX = 0;
+        this.filterEta = 'all';
+        this.filterCreated = 'all';
+        this.sortOption = 'score';
         
         // Initialize app when DOM is loaded
         if (document.readyState === 'loading') {
@@ -73,6 +76,9 @@ class DailyPriorityApp {
         document.querySelectorAll('.view-btn').forEach(btn => {
             btn.addEventListener('click', (e) => this.switchView(e.target.dataset.view));
         });
+
+        // Filter button controls
+        this.setupFilterButtons();
 
         // Settings controls
         document.getElementById('export-data')?.addEventListener('click', () => this.exportData());
@@ -182,6 +188,203 @@ class DailyPriorityApp {
             e.preventDefault();
             this.exportData();
         }
+    }
+
+    /**
+     * Setup filter button functionality
+     */
+    setupFilterButtons() {
+        // ETA Filter
+        const etaFilterBtn = document.getElementById('eta-filter-btn');
+        const etaDropdown = document.getElementById('eta-dropdown');
+        if (etaFilterBtn && etaDropdown) {
+            etaFilterBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.toggleDropdown(etaDropdown);
+            });
+            
+            etaDropdown.addEventListener('click', (e) => {
+                if (e.target.classList.contains('filter-option')) {
+                    const value = e.target.dataset.value;
+                    this.updateFilterButton(etaFilterBtn, etaDropdown, value, '📅 ETA');
+                    this.filterEta = value;
+                    this.renderTasks();
+                }
+            });
+        }
+
+        // Created Filter
+        const createdFilterBtn = document.getElementById('created-filter-btn');
+        const createdDropdown = document.getElementById('created-dropdown');
+        if (createdFilterBtn && createdDropdown) {
+            createdFilterBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.toggleDropdown(createdDropdown);
+            });
+            
+            createdDropdown.addEventListener('click', (e) => {
+                if (e.target.classList.contains('filter-option')) {
+                    const value = e.target.dataset.value;
+                    this.updateFilterButton(createdFilterBtn, createdDropdown, value, '🗓️ Created');
+                    this.filterCreated = value;
+                    this.renderTasks();
+                }
+            });
+        }
+
+        // Sort Filter
+        const sortFilterBtn = document.getElementById('sort-filter-btn');
+        const sortDropdown = document.getElementById('sort-dropdown');
+        if (sortFilterBtn && sortDropdown) {
+            sortFilterBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.toggleDropdown(sortDropdown);
+            });
+            
+            sortDropdown.addEventListener('click', (e) => {
+                if (e.target.classList.contains('filter-option')) {
+                    const value = e.target.dataset.value;
+                    this.updateFilterButton(sortFilterBtn, sortDropdown, value, '🔀 Sort');
+                    this.sortOption = value;
+                    this.renderTasks();
+                }
+            });
+        }
+
+        // Close dropdowns when clicking outside
+        document.addEventListener('click', () => {
+            document.querySelectorAll('.filter-dropdown').forEach(dropdown => {
+                dropdown.classList.remove('show');
+            });
+        });
+    }
+
+    /**
+     * Toggle dropdown visibility
+     */
+    toggleDropdown(dropdown) {
+        // Close all other dropdowns
+        document.querySelectorAll('.filter-dropdown').forEach(dd => {
+            if (dd !== dropdown) dd.classList.remove('show');
+        });
+        dropdown.classList.toggle('show');
+    }
+
+    /**
+     * Update filter button text and selected option
+     */
+    updateFilterButton(button, dropdown, value, prefix) {
+        const option = dropdown.querySelector(`[data-value="${value}"]`);
+        if (option) {
+            // Update button text
+            const textSpan = button.querySelector('span:first-child');
+            textSpan.textContent = `${prefix}: ${option.textContent}`;
+            
+            // Update selected state
+            dropdown.querySelectorAll('.filter-option').forEach(opt => {
+                opt.classList.remove('selected');
+            });
+            option.classList.add('selected');
+            
+            // Update button active state
+            button.classList.toggle('active', value !== 'all');
+        }
+        dropdown.classList.remove('show');
+    }
+
+    /**
+     * Apply filters to tasks
+     */
+    applyFilters(tasks) {
+        const now = new Date();
+
+        // Filter by ETA
+        if (this.filterEta !== 'all') {
+            tasks = tasks.filter(task => {
+                if (!task.eta) return false;
+                const etaDate = new Date(task.eta);
+                switch (this.filterEta) {
+                    case 'today':
+                        return etaDate.toDateString() === now.toDateString();
+                    case 'this-week': {
+                        const weekStart = new Date(now);
+                        weekStart.setDate(now.getDate() - now.getDay());
+                        const weekEnd = new Date(weekStart);
+                        weekEnd.setDate(weekStart.getDate() + 6);
+                        return etaDate >= weekStart && etaDate <= weekEnd;
+                    }
+                    case 'overdue':
+                        return etaDate < now && !task.completed;
+                    default:
+                        return true;
+                }
+            });
+        }
+
+        // Filter by creation date
+        if (this.filterCreated !== 'all') {
+            tasks = tasks.filter(task => {
+                if (!task.createdAt) return false;
+                const createdDate = new Date(task.createdAt);
+                switch (this.filterCreated) {
+                    case 'last-7-days': {
+                        const pastDate = new Date(now);
+                        pastDate.setDate(now.getDate() - 7);
+                        return createdDate >= pastDate;
+                    }
+                    case 'last-30-days': {
+                        const pastDate = new Date(now);
+                        pastDate.setDate(now.getDate() - 30);
+                        return createdDate >= pastDate;
+                    }
+                    default:
+                        return true;
+                }
+            });
+        }
+
+        return tasks;
+    }
+
+    /**
+     * Get sorting function based on selected option
+     */
+    getSortFunction() {
+        switch (this.sortOption) {
+            case 'eta':
+                return (a, b) => {
+                    if (!a.eta) return 1;
+                    if (!b.eta) return -1;
+                    return new Date(a.eta) - new Date(b.eta);
+                };
+            case 'created':
+                return (a, b) => new Date(b.createdAt) - new Date(a.createdAt);
+            case 'score':
+            default:
+                return (a, b) => b.smartScore - a.smartScore;
+        }
+    }
+
+    /**
+     * Group tasks by ETA date for day-level view
+     */
+    groupTasksByDate(tasks) {
+        const groups = {};
+        
+        tasks.forEach(task => {
+            let dateKey;
+            if (task.eta) {
+                dateKey = new Date(task.eta).toDateString();
+            } else {
+                dateKey = 'No Due Date';
+            }
+            
+            if (!groups[dateKey]) {
+                groups[dateKey] = [];
+            }
+            groups[dateKey].push(task);
+        });
+        return groups;
     }
 
     /**
@@ -323,7 +526,6 @@ class DailyPriorityApp {
             title.textContent = 'Add New Task';
             form.reset();
             // Set default values
-            document.getElementById('task-priority').value = '50';
             document.getElementById('eisenhower-matrix').value = 'Q2';
         }
 
@@ -360,7 +562,6 @@ class DailyPriorityApp {
             }
             
             document.getElementById('task-time-required').value = task.timeRequired || '';
-            document.getElementById('task-priority').value = task.priority;
             document.getElementById('eisenhower-matrix').value = task.eisenhowerMatrix || 'Q2';
             
             // Handle comments - show most recent or all combined
@@ -435,7 +636,6 @@ class DailyPriorityApp {
                 why: document.getElementById('task-why').value.trim(),
                 eta: document.getElementById('task-eta').value || null,
                 timeRequired: parseInt(document.getElementById('task-time-required').value) || 60,
-                priority: parseInt(document.getElementById('task-priority').value) || 50,
                 eisenhowerMatrix: document.getElementById('eisenhower-matrix').value || 'Q2',
                 comments: document.getElementById('task-comments').value.trim()
             };
@@ -502,17 +702,19 @@ class DailyPriorityApp {
     }
 
     /**
-     * Render tasks list
+     * Render tasks grouped by day
      */
     renderTasks() {
         try {
             const tasksList = document.getElementById('tasks-list');
             const emptyState = document.getElementById('empty-state');
-            
             if (!tasksList || !emptyState) return;
 
             let tasks = window.storageManager.getAllTasks();
-            
+
+            // Apply filters
+            tasks = this.applyFilters(tasks);
+
             // Filter tasks based on current view
             switch (this.currentView) {
                 case 'pending':
@@ -524,25 +726,38 @@ class DailyPriorityApp {
                 // 'all' shows everything
             }
 
-            // Sort tasks by Smart Score
-            tasks.sort((a, b) => {
-                if (a.completed !== b.completed) {
-                    return a.completed ? 1 : -1; // Non-completed first
-                }
-                return b.smartScore - a.smartScore; // Higher score first
-            });
+            // Sort tasks by selected sort option
+            tasks.sort(this.getSortFunction());
 
-            // Show/hide empty state
             if (tasks.length === 0) {
                 tasksList.innerHTML = '';
                 emptyState.classList.remove('hidden');
+                return;
             } else {
                 emptyState.classList.add('hidden');
-                tasksList.innerHTML = tasks.map(task => this.createTaskHTML(task)).join('');
-                
-                // Add event listeners to task cards
-                this.attachTaskEventListeners();
             }
+
+            // Group tasks by ETA date
+            const grouped = this.groupTasksByDate(tasks);
+            const sortedDates = Object.keys(grouped).sort((a, b) => {
+                if (a === 'No Due Date') return 1;
+                if (b === 'No Due Date') return -1;
+                return new Date(a) - new Date(b);
+            });
+            
+            let html = '';
+            for (const date of sortedDates) {
+                const dayTasks = grouped[date];
+                const isOverdue = date !== 'No Due Date' && new Date(date) < new Date();
+                const headerClass = isOverdue ? 'day-group-header overdue' : 'day-group-header';
+                
+                html += `<h3 class="${headerClass}">${date}</h3>`;
+                html += dayTasks.map(task => this.createTaskHTML(task)).join('');
+            }
+            tasksList.innerHTML = html;
+
+            // Add event listeners to task cards
+            this.attachTaskEventListeners();
         } catch (error) {
             console.error('Failed to render tasks:', error);
             this.showError('Failed to load tasks');
@@ -554,7 +769,7 @@ class DailyPriorityApp {
      */
     createTaskHTML(task) {
         const completedClass = task.completed ? 'completed' : '';
-        const priorityClass = `priority-${task.priority > 66 ? 1 : task.priority > 33 ? 2 : 3}`;
+        const scoreClass = `priority-${task.smartScore > 60 ? 1 : task.smartScore > 40 ? 2 : 3}`;
         const overdueClass = task.overdue ? 'overdue' : '';
 
         // Format creation time
@@ -580,7 +795,7 @@ class DailyPriorityApp {
         }
 
         return `
-            <div class="task-card ${completedClass} ${priorityClass} ${overdueClass}" data-task-id="${task.id}" draggable="true">
+            <div class="task-card ${completedClass} ${scoreClass} ${overdueClass}" data-task-id="${task.id}" draggable="true">
                 <div class="task-header">
                     <h3 class="task-title">${task.overdue ? '🚨' : ''} ${this.escapeHtml(task.name)}</h3>
                     <div class="task-actions">
@@ -598,16 +813,16 @@ class DailyPriorityApp {
                 
                 <div class="task-meta">
                     <div class="task-meta-item">
-                        <span class="priority-indicator">P: ${task.priority}</span>
-                    </div>
-                    <div class="task-meta-item">
                         <span class="eisenhower-indicator">${task.eisenhowerMatrix}</span>
                     </div>
                     <div class="task-meta-item">
                         <span class="smart-score">Score: ${task.smartScore}</span>
                     </div>
-                    ${etaDisplay ? `<div class="task-meta-item">⏱️ ${etaDisplay}</div>` : ''}
-                    <div class="task-meta-item">📅 ${createdTime}</div>
+                    <div class="task-meta-item">
+                        <span>⏱️ ${task.timeRequired}min</span>
+                    </div>
+                    ${etaDisplay ? `<div class="task-meta-item">📅 ${etaDisplay}</div>` : ''}
+                    <div class="task-meta-item">🕐 ${createdTime}</div>
                 </div>
                 
                 <div class="task-why">"${this.escapeHtml(task.why)}"</div>
@@ -715,7 +930,7 @@ class DailyPriorityApp {
      */
     toggleTaskCompletion(taskId) {
         try {
-            const tasks = window.storageManager.getTodaysTasks();
+            const tasks = window.storageManager.getAllTasks();
             const task = tasks.find(t => t.id === taskId);
             
             if (!task) {
@@ -748,7 +963,7 @@ class DailyPriorityApp {
      */
     deleteTask(taskId) {
         try {
-            const tasks = window.storageManager.getTodaysTasks();
+            const tasks = window.storageManager.getAllTasks();
             const task = tasks.find(t => t.id === taskId);
             
             if (!task) {
@@ -867,14 +1082,16 @@ class DailyPriorityApp {
             transform: 'translateX(-50%)',
             background: type === 'success' ? '#4CAF50' : type === 'error' ? '#F44336' : '#2196F3',
             color: 'white',
-            padding: '12px 24px',
-            borderRadius: '8px',
+            padding: '6px 12px',
+            borderRadius: '6px',
             boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
             zIndex: '10000',
-            fontSize: '14px',
+            fontSize: '0.85rem',
             fontWeight: '500',
             maxWidth: '90vw',
-            textAlign: 'center'
+            textAlign: 'center',
+            maxHeight: '40px',
+            overflow: 'hidden'
         });
 
         document.body.appendChild(notification);
@@ -889,7 +1106,7 @@ class DailyPriorityApp {
             notification.style.transform = 'translateX(-50%) translateY(0)';
         });
 
-        // Remove after 4 seconds
+        // Remove after 3 seconds
         setTimeout(() => {
             notification.style.opacity = '0';
             notification.style.transform = 'translateX(-50%) translateY(-20px)';
@@ -898,7 +1115,7 @@ class DailyPriorityApp {
                     notification.parentNode.removeChild(notification);
                 }
             }, 300);
-        }, 4000);
+        }, 3000);
     }
 
     /**

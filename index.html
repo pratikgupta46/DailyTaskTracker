@@ -46,8 +46,41 @@
                 <button class="view-btn" data-view="completed">Completed</button>
             </div>
 
+            <div class="filter-sort-bar">
+                <div class="filter-button" id="eta-filter-btn">
+                    <span>📅 ETA: All</span>
+                    <span>▼</span>
+                    <div class="filter-dropdown" id="eta-dropdown">
+                        <div class="filter-option selected" data-value="all">All</div>
+                        <div class="filter-option" data-value="today">Today</div>
+                        <div class="filter-option" data-value="this-week">This Week</div>
+                        <div class="filter-option" data-value="overdue">Overdue</div>
+                    </div>
+                </div>
+
+                <div class="filter-button" id="created-filter-btn">
+                    <span>🗓️ Created: All</span>
+                    <span>▼</span>
+                    <div class="filter-dropdown" id="created-dropdown">
+                        <div class="filter-option selected" data-value="all">All</div>
+                        <div class="filter-option" data-value="last-7-days">Last 7 Days</div>
+                        <div class="filter-option" data-value="last-30-days">Last 30 Days</div>
+                    </div>
+                </div>
+
+                <div class="filter-button" id="sort-filter-btn">
+                    <span>🔀 Sort: Smart Score</span>
+                    <span>▼</span>
+                    <div class="filter-dropdown" id="sort-dropdown">
+                        <div class="filter-option selected" data-value="score">Smart Score</div>
+                        <div class="filter-option" data-value="eta">ETA</div>
+                        <div class="filter-option" data-value="created">Creation Date</div>
+                    </div>
+                </div>
+            </div>
+
             <div id="tasks-list" class="tasks-list">
-                <!-- Tasks will be rendered here -->
+                <!-- Tasks will be rendered here -->\
             </div>
 
             <div id="empty-state" class="empty-state hidden">
@@ -82,10 +115,6 @@
                 <div class="form-group">
                     <label for="task-time-required">Time Required (minutes)</label>
                     <input type="number" id="task-time-required" name="taskTimeRequired" min="5">
-                </div>
-                <div class="form-group">
-                    <label for="task-priority">Priority (1-100)</label>
-                    <input type="number" id="task-priority" name="taskPriority" min="1" max="100" value="50">
                 </div>
                 <div class="form-group">
                     <label for="eisenhower-matrix">Eisenhower Matrix</label>

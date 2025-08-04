@@ -54,17 +54,9 @@
                         <div class="filter-option selected" data-value="all">All</div>
                         <div class="filter-option" data-value="today">Today</div>
                         <div class="filter-option" data-value="this-week">This Week</div>
+                        <div class="filter-option" data-value="next-week">Next Week</div>
                         <div class="filter-option" data-value="overdue">Overdue</div>
-                    </div>
-                </div>
-
-                <div class="filter-button" id="created-filter-btn">
-                    <span>🗓️ Created: All</span>
-                    <span>▼</span>
-                    <div class="filter-dropdown" id="created-dropdown">
-                        <div class="filter-option selected" data-value="all">All</div>
-                        <div class="filter-option" data-value="last-7-days">Last 7 Days</div>
-                        <div class="filter-option" data-value="last-30-days">Last 30 Days</div>
+                        <div class="filter-option" data-value="custom">Custom Range</div>
                     </div>
                 </div>
 
@@ -154,6 +146,31 @@
             <div class="setting-item">
                 <button id="import-data" class="btn">Import Data</button>
                 <input type="file" id="import-file" accept=".json" style="display:none;">
+            </div>
+            <div class="setting-item">
+                <button id="feedback-btn" class="btn">💬 Send Feedback</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Date Range Modal -->
+    <div id="date-range-modal" class="modal">
+        <div class="modal-header">
+            <h2>Select Date Range</h2>
+            <button id="close-date-range" class="close-btn">&times;</button>
+        </div>
+        <div class="modal-content">
+            <div class="form-group">
+                <label for="date-range-start">Start Date</label>
+                <input type="date" id="date-range-start" name="dateRangeStart">
+            </div>
+            <div class="form-group">
+                <label for="date-range-end">End Date</label>
+                <input type="date" id="date-range-end" name="dateRangeEnd">
+            </div>
+            <div class="form-actions">
+                <button type="button" id="cancel-date-range" class="btn btn-secondary">Cancel</button>
+                <button type="button" id="apply-date-range" class="btn btn-primary">Apply Range</button>
             </div>
         </div>
     </div>

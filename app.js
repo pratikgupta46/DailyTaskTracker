@@ -11,7 +11,8 @@ class DailyPriorityApp {
         this.touchStartY = 0;
         this.touchStartX = 0;
         this.filterEta = 'all';
-        this.filterCreated = 'all';
+        this.filterEtaRange = 'all';
+        this.customDateRange = { start: null, end: null };
         this.sortOption = 'score';
         
         // Initialize app when DOM is loaded
@@ -85,6 +86,12 @@ class DailyPriorityApp {
         document.getElementById('import-data')?.addEventListener('click', () => this.importData());
         document.getElementById('import-file')?.addEventListener('change', (e) => this.handleFileImport(e));
         document.getElementById('auto-theme')?.addEventListener('change', (e) => this.updateAutoTheme(e.target.checked));
+        document.getElementById('feedback-btn')?.addEventListener('click', () => this.openFeedback());
+
+        // Date range modal controls
+        document.getElementById('close-date-range')?.addEventListener('click', () => this.closeDateRangeModal());
+        document.getElementById('cancel-date-range')?.addEventListener('click', () => this.closeDateRangeModal());
+        document.getElementById('apply-date-range')?.addEventListener('click', () => this.applyDateRange());
 
         // Keyboard shortcuts
         document.addEventListener('keydown', (e) => this.handleKeyboardShortcuts(e));
@@ -206,31 +213,17 @@ class DailyPriorityApp {
             etaDropdown.addEventListener('click', (e) => {
                 if (e.target.classList.contains('filter-option')) {
                     const value = e.target.dataset.value;
-                    this.updateFilterButton(etaFilterBtn, etaDropdown, value, '📅 ETA');
-                    this.filterEta = value;
-                    this.renderTasks();
+                    if (value === 'custom') {
+                        this.openDateRangeModal();
+                    } else {
+                        this.updateFilterButton(etaFilterBtn, etaDropdown, value, '📅 ETA');
+                        this.filterEta = value;
+                        this.renderTasks();
+                    }
                 }
             });
         }
 
-        // Created Filter
-        const createdFilterBtn = document.getElementById('created-filter-btn');
-        const createdDropdown = document.getElementById('created-dropdown');
-        if (createdFilterBtn && createdDropdown) {
-            createdFilterBtn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                this.toggleDropdown(createdDropdown);
-            });
-            
-            createdDropdown.addEventListener('click', (e) => {
-                if (e.target.classList.contains('filter-option')) {
-                    const value = e.target.dataset.value;
-                    this.updateFilterButton(createdFilterBtn, createdDropdown, value, '🗓️ Created');
-                    this.filterCreated = value;
-                    this.renderTasks();
-                }
-            });
-        }
 
         // Sort Filter
         const sortFilterBtn = document.getElementById('sort-filter-btn');
@@ -301,7 +294,7 @@ class DailyPriorityApp {
         // Filter by ETA
         if (this.filterEta !== 'all') {
             tasks = tasks.filter(task => {
-                if (!task.eta) return false;
+                if (!task.eta) return this.filterEta === 'all';
                 const etaDate = new Date(task.eta);
                 switch (this.filterEta) {
                     case 'today':
@@ -313,30 +306,22 @@ class DailyPriorityApp {
                         weekEnd.setDate(weekStart.getDate() + 6);
                         return etaDate >= weekStart && etaDate <= weekEnd;
                     }
+                    case 'next-week': {
+                        const nextWeekStart = new Date(now);
+                        nextWeekStart.setDate(now.getDate() + (7 - now.getDay()));
+                        const nextWeekEnd = new Date(nextWeekStart);
+                        nextWeekEnd.setDate(nextWeekStart.getDate() + 6);
+                        return etaDate >= nextWeekStart && etaDate <= nextWeekEnd;
+                    }
                     case 'overdue':
                         return etaDate < now && !task.completed;
-                    default:
+                    case 'custom':
+                        if (this.customDateRange.start && this.customDateRange.end) {
+                            const startDate = new Date(this.customDateRange.start);
+                            const endDate = new Date(this.customDateRange.end + 'T23:59:59');
+                            return etaDate >= startDate && etaDate <= endDate;
+                        }
                         return true;
-                }
-            });
-        }
-
-        // Filter by creation date
-        if (this.filterCreated !== 'all') {
-            tasks = tasks.filter(task => {
-                if (!task.createdAt) return false;
-                const createdDate = new Date(task.createdAt);
-                switch (this.filterCreated) {
-                    case 'last-7-days': {
-                        const pastDate = new Date(now);
-                        pastDate.setDate(now.getDate() - 7);
-                        return createdDate >= pastDate;
-                    }
-                    case 'last-30-days': {
-                        const pastDate = new Date(now);
-                        pastDate.setDate(now.getDate() - 30);
-                        return createdDate >= pastDate;
-                    }
                     default:
                         return true;
                 }
@@ -622,6 +607,104 @@ class DailyPriorityApp {
     closeAllModals() {
         this.closeTaskModal();
         this.closeSettingsModal();
+        this.closeDateRangeModal();
+    }
+
+    /**
+     * Open date range modal
+     */
+    openDateRangeModal() {
+        const modal = document.getElementById('date-range-modal');
+        const overlay = document.getElementById('modal-overlay');
+        
+        if (modal && overlay) {
+            modal.classList.add('active');
+            overlay.classList.add('active');
+            
+            // Set current custom range if exists
+            if (this.customDateRange.start) {
+                document.getElementById('date-range-start').value = this.customDateRange.start;
+            }
+            if (this.customDateRange.end) {
+                document.getElementById('date-range-end').value = this.customDateRange.end;
+            }
+        }
+    }
+
+    /**
+     * Close date range modal
+     */
+    closeDateRangeModal() {
+        const modal = document.getElementById('date-range-modal');
+        const overlay = document.getElementById('modal-overlay');
+        
+        if (modal) modal.classList.remove('active');
+        if (overlay) overlay.classList.remove('active');
+    }
+
+    /**
+     * Apply custom date range
+     */
+    applyDateRange() {
+        const startDate = document.getElementById('date-range-start').value;
+        const endDate = document.getElementById('date-range-end').value;
+        
+        if (!startDate || !endDate) {
+            this.showError('Please select both start and end dates');
+            return;
+        }
+        
+        if (new Date(startDate) > new Date(endDate)) {
+            this.showError('Start date must be before end date');
+            return;
+        }
+        
+        this.customDateRange = { start: startDate, end: endDate };
+        this.filterEta = 'custom';
+        
+        // Update the filter button text
+        const etaFilterBtn = document.getElementById('eta-filter-btn');
+        if (etaFilterBtn) {
+            const textSpan = etaFilterBtn.querySelector('span:first-child');
+            textSpan.textContent = `📅 ETA: ${startDate} to ${endDate}`;
+            etaFilterBtn.classList.add('active');
+        }
+        
+        this.closeDateRangeModal();
+        this.renderTasks();
+        this.showSuccess('Custom date range applied');
+    }
+
+    /**
+     * Open feedback form
+     */
+    openFeedback() {
+        const subject = encodeURIComponent('Daily Priority Tracker - Feedback');
+        const body = encodeURIComponent(`Hi,
+
+I would like to provide feedback about the Daily Priority Tracker app:
+
+Feature Request / Bug Report / General Feedback:
+
+
+App Version: 2.0.0
+Browser: ${navigator.userAgent}
+Date: ${new Date().toISOString()}
+
+Thank you!`);
+        
+        // Try to open default email client
+        const mailtoLink = `mailto:feedback@example.com?subject=${subject}&body=${body}`;
+        
+        // Create a temporary link to trigger email client
+        const tempLink = document.createElement('a');
+        tempLink.href = mailtoLink;
+        tempLink.style.display = 'none';
+        document.body.appendChild(tempLink);
+        tempLink.click();
+        document.body.removeChild(tempLink);
+        
+        this.showSuccess('Email client opened. Please update the email address as needed.');
     }
 
     /**
@@ -772,11 +855,7 @@ class DailyPriorityApp {
         const scoreClass = `priority-${task.smartScore > 60 ? 1 : task.smartScore > 40 ? 2 : 3}`;
         const overdueClass = task.overdue ? 'overdue' : '';
 
-        // Format creation time
-        const createdTime = new Date(task.createdAt).toLocaleTimeString('en-US', {
-            hour: '2-digit',
-            minute: '2-digit'
-        });
+        const autoPromotedClass = task.wasAutoPromoted ? 'auto-promoted' : '';
 
         // Format ETA
         let etaDisplay = '';
@@ -789,15 +868,22 @@ class DailyPriorityApp {
         let commentsHTML = '';
         if (task.comments && (Array.isArray(task.comments) ? task.comments.length > 0 : task.comments.trim())) {
             const commentText = Array.isArray(task.comments) ? 
-                task.comments.map(c => typeof c === 'string' ? c : c.text).join(' • ') :
+                task.comments.map(c => {
+                    if (typeof c === 'string') return c;
+                    return c.isSystem ? `🤖 ${c.text}` : c.text;
+                }).join(' • ') :
                 task.comments;
             commentsHTML = `<div class="task-comments">${this.escapeHtml(commentText)}</div>`;
         }
 
+        // Auto-promotion indicator
+        const autoPromotedIndicator = task.wasAutoPromoted ? 
+            '<span class="auto-promoted-badge" title="Auto-promoted due to overdue ETA">🚀</span>' : '';
+
         return `
-            <div class="task-card ${completedClass} ${scoreClass} ${overdueClass}" data-task-id="${task.id}" draggable="true">
+            <div class="task-card ${completedClass} ${scoreClass} ${overdueClass} ${autoPromotedClass}" data-task-id="${task.id}" draggable="true">
                 <div class="task-header">
-                    <h3 class="task-title">${task.overdue ? '🚨' : ''} ${this.escapeHtml(task.name)}</h3>
+                    <h3 class="task-title">${task.overdue ? '🚨' : ''} ${autoPromotedIndicator} ${this.escapeHtml(task.name)}</h3>
                     <div class="task-actions">
                         <button class="task-action-btn" onclick="app.toggleTaskCompletion(${task.id})" title="${task.completed ? 'Mark as pending' : 'Mark as completed'}">
                             ${task.completed ? '↶' : '✓'}
@@ -822,7 +908,6 @@ class DailyPriorityApp {
                         <span>⏱️ ${task.timeRequired}min</span>
                     </div>
                     ${etaDisplay ? `<div class="task-meta-item">📅 ${etaDisplay}</div>` : ''}
-                    <div class="task-meta-item">🕐 ${createdTime}</div>
                 </div>
                 
                 <div class="task-why">"${this.escapeHtml(task.why)}"</div>

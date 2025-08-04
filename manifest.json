@@ -1,6 +1,7 @@
 {
     "name": "Daily Priority Tracker",
     "short_name": "TaskTracker",
+    "version": "2.0.0",
     "description": "Smart task management with Eisenhower Matrix integration",
     "start_url": "./index.html",
     "display": "standalone",

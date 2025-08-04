@@ -8,10 +8,14 @@ class StorageManager {
         this.storageKey = 'dailyPriorityTracker';
         this.backupKey = 'dailyPriorityTracker_backup';
         this.settingsKey = 'dailyPriorityTracker_settings';
-        this.version = '1.0.0';
+        this.version = '2.0.0';
         
         // Initialize storage if needed
         this.initializeStorage();
+        
+        // Check for ETA breaches periodically
+        this.checkEtaBreaches();
+        setInterval(() => this.checkEtaBreaches(), 60000); // Check every minute
     }
 
     /**
@@ -82,7 +86,8 @@ class StorageManager {
                 updatedAt: task.updatedAt || new Date().toISOString(),
                 completedAt: task.completedAt || null,
                 comments: Array.isArray(task.comments) ? task.comments : (task.comments ? [task.comments] : []),
-                date: task.date || new Date().toISOString().split('T')[0] // YYYY-MM-DD format
+                date: task.date || new Date().toISOString().split('T')[0], // YYYY-MM-DD format
+                wasAutoPromoted: task.wasAutoPromoted || false // Track if task was auto-promoted from Q2 to Q1
             };
 
             // Calculate derived properties
@@ -641,6 +646,56 @@ class StorageManager {
         } catch (error) {
             console.error('Restore failed:', error);
             throw error;
+        }
+    }
+
+    /**
+     * Check for ETA breaches and auto-promote Q2 tasks to Q1
+     */
+    checkEtaBreaches() {
+        try {
+            const data = this.getAllData();
+            let hasChanges = false;
+            const now = new Date();
+
+            data.tasks.forEach(task => {
+                // Check if task is Q2 (Important, Not Urgent), not completed, has ETA, and is overdue
+                if (task.eisenhowerMatrix === 'Q2' && 
+                    !task.completed && 
+                    task.eta && 
+                    new Date(task.eta) < now &&
+                    !task.wasAutoPromoted) {
+                    
+                    // Auto-promote to Q1 (Urgent & Important)
+                    task.eisenhowerMatrix = 'Q1';
+                    task.wasAutoPromoted = true;
+                    task.updatedAt = new Date().toISOString();
+                    
+                    // Add auto-promotion comment
+                    const autoComment = {
+                        id: Date.now() + Math.random(),
+                        text: `🚨 Auto-promoted to Urgent & Important due to overdue ETA`,
+                        timestamp: new Date().toISOString(),
+                        isSystem: true
+                    };
+                    
+                    if (!Array.isArray(task.comments)) {
+                        task.comments = [];
+                    }
+                    task.comments.push(autoComment);
+                    
+                    hasChanges = true;
+                    console.log(`Auto-promoted task "${task.name}" from Q2 to Q1 due to overdue ETA`);
+                }
+            });
+
+            if (hasChanges) {
+                // Recalculate smart scores for all tasks
+                data.tasks = data.tasks.map(task => this.validateTask(task));
+                this.saveAllData(data);
+            }
+        } catch (error) {
+            console.error('Failed to check ETA breaches:', error);
         }
     }
 
